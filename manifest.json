@@ -3,7 +3,7 @@
     "name": "TohoInfo",
     "description": "Checks for Touhou song metadata via TouhouDB and provides character info.",
     "preview": "screenshot.png",
-    "main": "hidePodcasts.js",
+    "main": "tohoinfo.js",
     "readme": "README.md",
     "tags": ["touhou"]
   },
