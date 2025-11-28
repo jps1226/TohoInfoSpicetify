@@ -1,6 +1,6 @@
 # ⛩️ TohoInfo - Spicetify Extension
 
-![TohoInfo Extension Screenshot showing character and original song metadata in Spotify's player bar](screenshot.jpg)
+![TohoInfo Extension Screenshot showing character and original song metadata in Spotify's player bar](screenshot.png)
 
 ## 🌟 Overview
 
