@@ -24,7 +24,8 @@ let originalSpotifyLink: string | null = null;
 async function main() {
     injectStyles();
 
-    while (!document.querySelector(".main-nowPlayingBar-left")) {
+    // CHANGED: Wait for the RIGHT side bar now
+    while (!document.querySelector(".main-nowPlayingBar-right")) {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     console.log("TohoInfo: UI Ready.");
@@ -49,15 +50,12 @@ function injectStyles() {
     const style = document.createElement("style");
     style.id = "toho-info-style";
     style.innerHTML = `
-        /* Layout Fixes */
-        .main-nowPlayingBar-left { 
-            display: flex !important; 
-            flex-direction: row !important; 
-            flex-wrap: nowrap !important; 
-            align-items: center !important; 
+        /* Ensure Right Bar allows overflow for our popup */
+        .main-nowPlayingBar-right { 
             overflow: visible !important; 
+            display: flex !important;
+            align-items: center !important;
         }
-        .main-trackInfo-container { flex-shrink: 1 !important; min-width: 0 !important; }
 
         /* ICON CONTAINER */
         #toho-info-container {
@@ -67,6 +65,8 @@ function injectStyles() {
             justify-content: center;
             width: 42px;
             height: 42px;
+            /* CHANGED: Margin logic for right side */
+            margin-right: 12px; 
             margin-left: 12px;
             border-radius: 50%;
             background-color: rgba(0,0,0,0.1);
@@ -86,7 +86,6 @@ function injectStyles() {
             width: 38px; height: 38px;
             border-radius: 50%;
             object-fit: cover;
-            /* FIX 1: Align small icon to top (Face) */
             object-position: top center; 
             display: none;
             border: 1px solid rgba(0,0,0,0.5);
@@ -101,12 +100,13 @@ function injectStyles() {
         /* HOVER CARD */
         #toho-hover-card {
             position: absolute;
-            bottom: 55px;
+            bottom: 60px; /* Shift up slightly */
+            /* CHANGED: Anchor to center/rightish since we are on the right side */
             left: 50%;
             transform: translateX(-50%);
             
             width: max-content;
-            max-width: 400px; /* Slightly wider for side-by-side */
+            max-width: 400px;
             min-width: 250px;
             
             background-color: var(--spice-card);
@@ -120,12 +120,11 @@ function injectStyles() {
             transition: opacity 0.2s ease, visibility 0.2s;
             z-index: 9999;
             
-            /* FIX 2: Side-by-Side Layout */
             display: flex;
             flex-direction: row; 
-            align-items: flex-start; /* Align top */
+            align-items: flex-start;
             gap: 12px;
-            text-align: left; /* Left align text now */
+            text-align: left;
             cursor: default;
         }
 
@@ -138,25 +137,23 @@ function injectStyles() {
         #toho-hover-card::before { content: ""; position: absolute; top: 100%; left: 0; width: 100%; height: 20px; background: transparent; }
         #toho-hover-card::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: var(--spice-card) transparent transparent transparent; }
 
-        /* Large Character Image in Popup (Side Portrait) */
         .toho-card-hero-img {
-            width: 80px;  /* Fixed portrait width */
-            height: 110px; /* Fixed portrait height */
+            width: 80px;
+            height: 110px;
             object-fit: cover;
-            object-position: top; /* Focus on face */
+            object-position: top;
             border-radius: 4px;
-            flex-shrink: 0; /* Don't squash the image */
+            flex-shrink: 0;
             border: 1px solid rgba(255,255,255,0.1);
             background-color: rgba(0,0,0,0.3);
         }
 
-        /* Text Container inside Card */
         .toho-card-content {
             display: flex;
             flex-direction: column;
             justify-content: center;
             flex: 1;
-            min-width: 140px; /* Ensure text has space */
+            min-width: 140px;
         }
 
         .toho-card-title { color: var(--spice-text); font-weight: bold; font-size: 0.95rem; line-height: 1.3; margin-bottom: 4px; }
@@ -168,7 +165,7 @@ function injectStyles() {
             padding: 6px 10px; background: rgba(255,255,255,0.05); border-radius: 4px; 
             cursor: pointer; font-size: 0.75rem; font-weight: bold; color: var(--spice-text); 
             transition: background 0.2s; 
-            align-self: flex-start; /* Don't stretch button */
+            align-self: flex-start;
             width: 100%;
         }
         .toho-card-btn:hover { background: rgba(255,255,255,0.15); }
@@ -180,8 +177,9 @@ function injectStyles() {
 }
 
 function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, charInfo?: CharacterInfo } | null) {
-    const leftBar = document.querySelector(".main-nowPlayingBar-left");
-    if (!leftBar) return;
+    // CHANGED: Target the RIGHT bar
+    const rightBar = document.querySelector(".main-nowPlayingBar-right");
+    if (!rightBar) return;
 
     let container = document.getElementById("toho-info-container");
     if (!container) {
@@ -202,7 +200,10 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
         container.appendChild(iconImg);
         container.appendChild(iconText);
         container.appendChild(card);
-        leftBar.appendChild(container);
+        
+        // CHANGED: Prepend to the right bar (so it appears left-most in the right container)
+        // This usually places it right next to the Center Controls/Seek Bar.
+        rightBar.insertBefore(container, rightBar.firstChild);
     }
 
     if (!data) {
@@ -216,7 +217,7 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
     const iconText = document.getElementById("toho-icon-text");
     
     if (data.charInfo && iconImg && iconText) {
-        iconImg.src = data.charInfo.iconUrl; // Small Icon
+        iconImg.src = data.charInfo.iconUrl; 
         iconImg.style.display = "block";
         iconText.style.display = "none";
     } else if (iconImg && iconText) {
@@ -229,21 +230,17 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
     if (card) {
         let html = "";
         
-        // 1. Large Character Image (Left Side)
         if (data.charInfo) {
             html += `<img src="${data.charInfo.popupUrl}" class="toho-card-hero-img" />`;
         }
 
-        // 2. Text Content Wrapper (Right Side)
         html += `<div class="toho-card-content">`;
-        
         html += `
             <div class="toho-card-title">${data.main}</div>
             ${data.sub ? `<div class="toho-card-sub">${data.sub}</div>` : ""}
             <div class="toho-card-sub" style="font-size: 0.7rem; opacity: 0.7; margin-top:4px;">(Click icon for info)</div>
         `;
 
-        // 3. Spotify Button
         if (data.hasOriginalLink) {
             html += `
                 <div class="toho-card-sep"></div>
@@ -254,7 +251,7 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
             `;
         }
         
-        html += `</div>`; // End .toho-card-content
+        html += `</div>`; 
         card.innerHTML = html;
 
         const btn = document.getElementById("toho-card-spotify-btn");
@@ -263,7 +260,7 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
 }
 
 // ---------------------------------------------------------
-// LOGIC (Unchanged)
+// LOGIC
 // ---------------------------------------------------------
 
 async function checkSong(metadata: any) {
@@ -273,6 +270,11 @@ async function checkSong(metadata: any) {
     currentOriginal = null;
     originalSpotifyLink = null;
 
+    // --- 1. DETERMINE IF STRICTLY ORIGINAL ---
+    const artistName = metadata.artist_name || "";
+    // Checks if the artist is EXACTLY one of these two strings (no "feat", no "vs", no "Aftergrow")
+    const isStrictlyOriginal = artistName === "ZUN" || artistName === "上海アリス幻樂団";
+
     const cleanTitle = getCleanTitle(metadata.title);
     const candidates = await searchTouhouDB(cleanTitle);
 
@@ -281,7 +283,8 @@ async function checkSong(metadata: any) {
         return;
     }
 
-    const match = findBestMatch(candidates, metadata);
+    // Pass strict mode to finder
+    const match = findBestMatch(candidates, metadata, isStrictlyOriginal);
     currentMatch = match;
     
     let mainText = "";
@@ -290,11 +293,40 @@ async function checkSong(metadata: any) {
     let charInfo: CharacterInfo | undefined = undefined;
     let sourceSongForChar = match;
 
+    // --- 2. BRANCHING LOGIC ---
+    
     if (match.songType === "Original") {
-        mainText = `Original: ${match.name}`;
-        subText = getEnglishName(match);
+        if (isStrictlyOriginal) {
+            // Logic A: It IS an original file
+            mainText = `Original: ${match.name}`;
+            subText = getEnglishName(match);
+        } else {
+            // Logic B: Matches an original, but the artist is NOT just ZUN. 
+            // Treat as Arrangement of that original.
+            mainText = `Arrangement of: ${match.name}`;
+            subText = getEnglishName(match);
+            
+            // In this specific case, the "Original" we found IS the original. 
+            // We can link to it directly if we have the link.
+            currentOriginal = match; // The match is the source
+            
+            if (ZUN_LINKS[match.id]) {
+                originalSpotifyLink = ZUN_LINKS[match.id];
+                hasLink = true;
+            } else {
+                // If we don't have hardcoded link, we might want to check PVs of this 'match'
+                // But we usually fetch PVs via 'fetchOriginalSong'.
+                // Let's quickly re-fetch full details to get PVs just in case
+                const fullOrig = await fetchOriginalSong(match.id);
+                if (fullOrig && fullOrig.pvs) {
+                     const spotifyPV = fullOrig.pvs.find(pv => pv.service === "Spotify");
+                     if (spotifyPV) { originalSpotifyLink = spotifyPV.url; hasLink = true; }
+                }
+            }
+        }
     } 
     else if (match.songType === "Arrangement" && match.originalVersionId) {
+        // Logic C: It's a known arrangement in the DB
         let original: TouhouSong | null = null;
         if (ZUN_LINKS[match.originalVersionId]) {
             originalSpotifyLink = ZUN_LINKS[match.originalVersionId];
@@ -321,6 +353,7 @@ async function checkSong(metadata: any) {
             mainText = `Arrangement of ID #${match.originalVersionId}`;
         }
     } else {
+        // Fallback
         mainText = `Touhou: ${match.name}`;
         subText = getEnglishName(match);
     }
@@ -366,7 +399,7 @@ async function fetchCharacterImage(artistId: number): Promise<{icon: string, pop
     return null;
 }
 
-function findBestMatch(candidates: TouhouSong[], meta: any): TouhouSong {
+function findBestMatch(candidates: TouhouSong[], meta: any, isStrictlyOriginal: boolean): TouhouSong {
     if (!candidates || candidates.length === 0) return null as any; 
     if (candidates.length === 1) return candidates[0];
 
@@ -377,6 +410,12 @@ function findBestMatch(candidates: TouhouSong[], meta: any): TouhouSong {
 
     for (const song of candidates) {
         let score = 0;
+
+        // NEW: Strict Original Bonus
+        if (isStrictlyOriginal && song.songType === "Original") {
+            score += 50; // Massive boost if we know it's ZUN
+        }
+
         if (song.artists) {
             for (const artistEntry of song.artists) {
                 if (artistEntry && artistEntry.artist && artistEntry.artist.name) {
