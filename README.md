@@ -1,5 +1,7 @@
 # ⛩️ TohoInfo - Spicetify Extension
 
+![TohoInfo Extension Screenshot showing character and original song metadata in Spotify's player bar](screenshot.jpg)
+
 ## 🌟 Overview
 
 TohoInfo is a lightweight Spicetify extension designed for fans of the Touhou Project music scene. It automatically identifies if the song currently playing on Spotify is an arrangement of a ZUN original and provides immediate, persistent metadata.
