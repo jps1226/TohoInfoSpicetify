@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { ZUN_LINKS } from './zundb';
 
 // --- DATA INTERFACES ---
@@ -10,13 +9,29 @@ interface TouhouSong {
     id: number; name: string; songType: "Original" | "Arrangement"; originalVersionId?: number;
     names?: TouhouName[]; pvs?: TouhouPV[]; artists?: TouhouArtistEntry[]; albums?: TouhouAlbum[];
 }
-interface CharacterInfo { 
-    name: string; 
-    iconUrl: string; 
-    popupUrl: string; 
+interface CharacterInfo {
+    name: string;
+    iconUrl: string;
+    popupUrl: string;
 }
 
-// Global state
+/** Minimal Spotify track metadata used for matching. */
+interface SongMetadata {
+    title?: string;
+    artist_name?: string;
+    album_title?: string;
+}
+
+// --- CONSTANTS ---
+const RIGHT_BAR_SELECTOR = ".main-nowPlayingBar-right";
+const UI_POLL_MS = 100;
+const STRICT_ORIGINAL_ARTISTS = ["ZUN", "上海アリス幻樂団"] as const;
+const MATCH_SCORE_STRICT_ORIGINAL = 50;
+const MATCH_SCORE_ARTIST = 5;
+const MATCH_SCORE_ALBUM = 10;
+const TITLE_TAGS_TO_STRIP = ["Remaster", "2021 ver", "Instrumental", "feat.", "Original Mix"];
+
+// Global state (used by UI and song-change handler)
 let currentMatch: TouhouSong | null = null;
 let currentOriginal: TouhouSong | null = null;
 let originalSpotifyLink: string | null = null;
@@ -24,9 +39,8 @@ let originalSpotifyLink: string | null = null;
 async function main() {
     injectStyles();
 
-    // CHANGED: Wait for the RIGHT side bar now
-    while (!document.querySelector(".main-nowPlayingBar-right")) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+    while (!document.querySelector(RIGHT_BAR_SELECTOR)) {
+        await new Promise(resolve => setTimeout(resolve, UI_POLL_MS));
     }
     console.log("TohoInfo: UI Ready.");
 
@@ -50,14 +64,12 @@ function injectStyles() {
     const style = document.createElement("style");
     style.id = "toho-info-style";
     style.innerHTML = `
-        /* Ensure Right Bar allows overflow for our popup */
-        .main-nowPlayingBar-right { 
-            overflow: visible !important; 
+        .main-nowPlayingBar-right {
+            overflow: visible !important;
             display: flex !important;
             align-items: center !important;
         }
 
-        /* ICON CONTAINER */
         #toho-info-container {
             position: relative;
             display: flex;
@@ -65,8 +77,7 @@ function injectStyles() {
             justify-content: center;
             width: 42px;
             height: 42px;
-            /* CHANGED: Margin logic for right side */
-            margin-right: 12px; 
+            margin-right: 12px;
             margin-left: 12px;
             border-radius: 50%;
             background-color: rgba(0,0,0,0.1);
@@ -97,11 +108,9 @@ function injectStyles() {
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
         }
 
-        /* HOVER CARD */
         #toho-hover-card {
             position: absolute;
-            bottom: 60px; /* Shift up slightly */
-            /* CHANGED: Anchor to center/rightish since we are on the right side */
+            bottom: 60px;
             left: 50%;
             transform: translateX(-50%);
             
@@ -176,9 +185,8 @@ function injectStyles() {
     document.head.appendChild(style);
 }
 
-function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, charInfo?: CharacterInfo } | null) {
-    // CHANGED: Target the RIGHT bar
-    const rightBar = document.querySelector(".main-nowPlayingBar-right");
+function updateUI(data: { main: string; sub: string; hasOriginalLink: boolean; charInfo?: CharacterInfo } | null) {
+    const rightBar = document.querySelector(RIGHT_BAR_SELECTOR);
     if (!rightBar) return;
 
     let container = document.getElementById("toho-info-container");
@@ -201,8 +209,6 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
         container.appendChild(iconText);
         container.appendChild(card);
         
-        // CHANGED: Prepend to the right bar (so it appears left-most in the right container)
-        // This usually places it right next to the Center Controls/Seek Bar.
         rightBar.insertBefore(container, rightBar.firstChild);
     }
 
@@ -263,17 +269,15 @@ function updateUI(data: { main: string, sub: string, hasOriginalLink: boolean, c
 // LOGIC
 // ---------------------------------------------------------
 
-async function checkSong(metadata: any) {
+async function checkSong(metadata: SongMetadata) {
     updateUI({ main: "Searching...", sub: "...", hasOriginalLink: false });
 
     currentMatch = null;
     currentOriginal = null;
     originalSpotifyLink = null;
 
-    // --- 1. DETERMINE IF STRICTLY ORIGINAL ---
-    const artistName = metadata.artist_name || "";
-    // Checks if the artist is EXACTLY one of these two strings (no "feat", no "vs", no "Aftergrow")
-    const isStrictlyOriginal = artistName === "ZUN" || artistName === "上海アリス幻樂団";
+    const artistName = metadata.artist_name ?? "";
+    const isStrictlyOriginal = STRICT_ORIGINAL_ARTISTS.includes(artistName as typeof STRICT_ORIGINAL_ARTISTS[number]);
 
     const cleanTitle = getCleanTitle(metadata.title);
     const candidates = await searchTouhouDB(cleanTitle);
@@ -283,69 +287,51 @@ async function checkSong(metadata: any) {
         return;
     }
 
-    // Pass strict mode to finder
     const match = findBestMatch(candidates, metadata, isStrictlyOriginal);
     currentMatch = match;
-    
+
     let mainText = "";
     let subText = "";
     let hasLink = false;
     let charInfo: CharacterInfo | undefined = undefined;
     let sourceSongForChar = match;
 
-    // --- 2. BRANCHING LOGIC ---
-    
     if (match.songType === "Original") {
         if (isStrictlyOriginal) {
-            // Logic A: It IS an original file
             mainText = `Original: ${match.name}`;
             subText = getEnglishName(match);
         } else {
-            // Logic B: Matches an original, but the artist is NOT just ZUN. 
-            // Treat as Arrangement of that original.
             mainText = `Arrangement of: ${match.name}`;
             subText = getEnglishName(match);
-            
-            // In this specific case, the "Original" we found IS the original. 
-            // We can link to it directly if we have the link.
-            currentOriginal = match; // The match is the source
-            
+            currentOriginal = match;
             if (ZUN_LINKS[match.id]) {
                 originalSpotifyLink = ZUN_LINKS[match.id];
                 hasLink = true;
             } else {
-                // If we don't have hardcoded link, we might want to check PVs of this 'match'
-                // But we usually fetch PVs via 'fetchOriginalSong'.
-                // Let's quickly re-fetch full details to get PVs just in case
                 const fullOrig = await fetchOriginalSong(match.id);
-                if (fullOrig && fullOrig.pvs) {
-                     const spotifyPV = fullOrig.pvs.find(pv => pv.service === "Spotify");
-                     if (spotifyPV) { originalSpotifyLink = spotifyPV.url; hasLink = true; }
+                const link = fullOrig ? getSpotifyLinkFromSong(fullOrig) : null;
+                if (link) {
+                    originalSpotifyLink = link;
+                    hasLink = true;
                 }
             }
         }
-    } 
-    else if (match.songType === "Arrangement" && match.originalVersionId) {
-        // Logic C: It's a known arrangement in the DB
-        let original: TouhouSong | null = null;
-        if (ZUN_LINKS[match.originalVersionId]) {
-            originalSpotifyLink = ZUN_LINKS[match.originalVersionId];
+    } else if (match.songType === "Arrangement" && match.originalVersionId) {
+        const linkFromZun = ZUN_LINKS[match.originalVersionId];
+        if (linkFromZun) {
+            originalSpotifyLink = linkFromZun;
             hasLink = true;
         }
-
-        original = await fetchOriginalSong(match.originalVersionId);
-
+        const original = await fetchOriginalSong(match.originalVersionId);
         if (original) {
             currentOriginal = original;
             sourceSongForChar = original;
-            
             mainText = `Arrangement of: ${original.name}`;
             subText = getEnglishName(original);
-
             if (!hasLink) {
-                const spotifyPV = original.pvs?.find(pv => pv.service === "Spotify");
-                if (spotifyPV) {
-                    originalSpotifyLink = spotifyPV.url;
+                const link = getSpotifyLinkFromSong(original);
+                if (link) {
+                    originalSpotifyLink = link;
                     hasLink = true;
                 }
             }
@@ -353,7 +339,6 @@ async function checkSong(metadata: any) {
             mainText = `Arrangement of ID #${match.originalVersionId}`;
         }
     } else {
-        // Fallback
         mainText = `Touhou: ${match.name}`;
         subText = getEnglishName(match);
     }
@@ -382,7 +367,12 @@ async function checkSong(metadata: any) {
 // HELPERS
 // ---------------------------------------------------------
 
-async function fetchCharacterImage(artistId: number): Promise<{icon: string, popup: string} | null> {
+function getSpotifyLinkFromSong(song: TouhouSong): string | null {
+    const pv = song.pvs?.find(p => p.service === "Spotify");
+    return pv?.url ?? null;
+}
+
+async function fetchCharacterImage(artistId: number): Promise<{ icon: string; popup: string } | null> {
     const url = `https://touhoudb.com/api/artists/${artistId}?fields=MainPicture`;
     try {
         const res = await fetch(url);
@@ -399,40 +389,40 @@ async function fetchCharacterImage(artistId: number): Promise<{icon: string, pop
     return null;
 }
 
-function findBestMatch(candidates: TouhouSong[], meta: any, isStrictlyOriginal: boolean): TouhouSong {
-    if (!candidates || candidates.length === 0) return null as any; 
+function findBestMatch(candidates: TouhouSong[], meta: SongMetadata, isStrictlyOriginal: boolean): TouhouSong {
+    if (!candidates?.length) throw new Error("findBestMatch requires at least one candidate");
     if (candidates.length === 1) return candidates[0];
 
     let bestScore = -1;
     let bestMatch = candidates[0];
-    const spArtist = (meta.artist_name || "").toLowerCase();
-    const spAlbum = (meta.album_title || "").toLowerCase();
+    const spArtist = (meta.artist_name ?? "").toLowerCase();
+    const spAlbum = (meta.album_title ?? "").toLowerCase();
 
     for (const song of candidates) {
         let score = 0;
-
-        // NEW: Strict Original Bonus
         if (isStrictlyOriginal && song.songType === "Original") {
-            score += 50; // Massive boost if we know it's ZUN
+            score += MATCH_SCORE_STRICT_ORIGINAL;
         }
-
         if (song.artists) {
             for (const artistEntry of song.artists) {
-                if (artistEntry && artistEntry.artist && artistEntry.artist.name) {
+                if (artistEntry?.artist?.name) {
                     const dbArtist = artistEntry.artist.name.toLowerCase();
-                    if (spArtist.includes(dbArtist)) score += 5;
+                    if (spArtist.includes(dbArtist)) score += MATCH_SCORE_ARTIST;
                 }
             }
         }
         if (song.albums) {
             for (const album of song.albums) {
-                if (album && album.name) {
+                if (album?.name) {
                     const dbAlbum = album.name.toLowerCase();
-                    if (spAlbum.includes(dbAlbum) || dbAlbum.includes(spAlbum)) score += 10;
+                    if (spAlbum.includes(dbAlbum) || dbAlbum.includes(spAlbum)) score += MATCH_SCORE_ALBUM;
                 }
             }
         }
-        if (score > bestScore) { bestScore = score; bestMatch = song; }
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = song;
+        }
     }
     return bestMatch;
 }
@@ -446,8 +436,9 @@ function getEnglishName(song: TouhouSong): string {
 function getCleanTitle(rawTitle: string): string {
     let title = rawTitle.normalize("NFKC");
     title = title.replace(/[\(\[][^\)\]]*[\)\]]/g, "");
-    const tagsToRemove = ["Remaster", "2021 ver", "Instrumental", "feat.", "Original Mix"];
-    tagsToRemove.forEach(tag => { title = title.replace(new RegExp(tag, "gi"), ""); });
+    for (const tag of TITLE_TAGS_TO_STRIP) {
+        title = title.replace(new RegExp(tag, "gi"), "");
+    }
     return title.trim();
 }
 
