@@ -68,6 +68,14 @@ export function getCleanTitle(rawTitle: string): string {
     for (const tag of TITLE_TAGS_TO_STRIP) {
         title = title.replace(new RegExp(tag, 'gi'), '');
     }
+    // Remove common arrangement suffixes (e.g. "VIOLIN ROCK", "ROCK", "VIOLIN", Japanese equivalents)
+    const SUFFIXES_TO_STRIP = ['VIOLIN ROCK', 'VIOLINROCK', 'VIOLIN', 'ROCK', 'バイオリンロック'];
+    for (const s of SUFFIXES_TO_STRIP) {
+        const re = new RegExp(`\\b${s}\\b`, 'gi');
+        title = title.replace(re, '');
+    }
+    // Collapse multiple spaces and trim
+    title = title.replace(/\s+/g, ' ');
     return title.trim();
 }
 
@@ -83,6 +91,42 @@ export function isStrictlyOriginalArtist(
     metadata?: any
 ): boolean {
     if (!STRICT_ORIGINAL_ARTISTS.includes(artistName as (typeof STRICT_ORIGINAL_ARTISTS)[number])) return false;
+
+    // If Spotify metadata lists additional artist_name fields (e.g. 'artist_name:1'),
+    // treat any non-strict artist in those fields as an indication this is an arrangement.
+    if (metadata && typeof metadata === 'object') {
+        try {
+            const secondaryArtists: string[] = [];
+            for (const k of Object.keys(metadata)) {
+                // match keys like 'artist_name', 'artist_name:1', 'artist_name:2', etc.
+                if (/^artist_name(?::\d+)?$/i.test(k)) {
+                    const v = String((metadata as any)[k] ?? '').trim();
+                    if (v) secondaryArtists.push(v);
+                }
+            }
+            // If there are multiple artist_name fields and any is not a STRICT_ORIGINAL_ARTIST,
+            // treat the track as non-original.
+            if (secondaryArtists.length > 1) {
+                for (const a of secondaryArtists) {
+                    const isStrict = STRICT_ORIGINAL_ARTISTS.some((s) => s.toLowerCase() === a.toLowerCase());
+                    if (!isStrict) {
+                        console.debug('isStrictlyOriginalArtist -> false (secondary artist list)', { artistName, secondaryArtists });
+                        return false;
+                    }
+                }
+            }
+            // Also if there's exactly one artist_name and it's not a strict original, treat as non-original
+            if (secondaryArtists.length === 1) {
+                const single = secondaryArtists[0];
+                if (!STRICT_ORIGINAL_ARTISTS.some((s) => s.toLowerCase() === single.toLowerCase())) {
+                    console.debug('isStrictlyOriginalArtist -> false (single artist_name non-strict)', { artistName, single });
+                    return false;
+                }
+            }
+        } catch (e) {
+            // ignore metadata inspection errors
+        }
+    }
 
     const combined = `${title ?? ''} ${album ?? ''}`.toLowerCase();
     const ARRANGEMENT_KEYWORDS = [
@@ -133,10 +177,50 @@ export function isStrictlyOriginalArtist(
     if (metadata) {
         try {
             haystack = JSON.stringify(metadata).toLowerCase();
-            if (haystack.includes('tamusic')) reasons.push('metadata:tamusic');
-            if (haystack.includes('arrange') || haystack.includes('編曲') || haystack.includes('arranger')) reasons.push('metadata:arrange');
         } catch (e) {
-            // ignore stringify errors
+            haystack = '';
+        }
+
+        // If metadata contains additional artist_name fields (e.g. 'artist_name:1') prefer them
+        try {
+            for (const k of Object.keys(metadata)) {
+                const lk = k.toLowerCase();
+                if (lk.startsWith('artist_name') && lk !== 'artist_name') {
+                    try {
+                        const v = String((metadata as any)[k] ?? '').trim();
+                        if (v) {
+                            const isStrict = STRICT_ORIGINAL_ARTISTS.some((s) => s.toLowerCase() === v.toLowerCase());
+                            if (!isStrict) {
+                                reasons.push(`metadata_artist:${k}=${v}`);
+                            }
+                        }
+                    } catch (e) {
+                        // ignore per-key
+                    }
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        // Fallback: inspect all enumerable values for strings that mention known arranger labels/keywords
+        try {
+            const vals: string[] = [];
+            for (const k of Object.keys(metadata)) {
+                try {
+                    const v = (metadata as any)[k];
+                    if (typeof v === 'string') vals.push(v.toLowerCase());
+                    else if (Array.isArray(v)) vals.push(...v.map((x) => String(x).toLowerCase()));
+                    else if (v && typeof v === 'object') vals.push(JSON.stringify(v).toLowerCase());
+                } catch (e) {
+                    // ignore per-key errors
+                }
+            }
+            const joined = vals.join(' ');
+            if (joined.includes('tamusic')) reasons.push('metadata_values:tamusic');
+            if (joined.includes('arrange') || joined.includes('編曲') || joined.includes('arranger')) reasons.push('metadata_values:arrange');
+        } catch (e) {
+            // ignore
         }
     }
 
