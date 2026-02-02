@@ -46,7 +46,14 @@ async function main() {
 
     Spicetify.Player.addEventListener('songchange', async () => {
         const metadata = Spicetify.Player.data.item?.metadata;
+        console.log('TohoInfo: Song change detected', {
+            title: metadata?.title,
+            artist: metadata?.artist_name,
+            album: metadata?.album_title,
+            fullMetadata: metadata,
+        });
         if (!metadata?.title) {
+            console.log('TohoInfo: No metadata or title found, clearing UI');
             updateUI(null);
             return;
         }
@@ -54,13 +61,20 @@ async function main() {
     });
 
     const currentMeta = Spicetify.Player.data.item?.metadata;
-    if (currentMeta) checkSong(currentMeta as SongMetadata);
+    if (currentMeta) {
+        console.log('TohoInfo: Checking initial song', {
+            title: currentMeta.title,
+            artist: currentMeta.artist_name,
+        });
+        checkSong(currentMeta as SongMetadata);
+    }
 }
 
 async function checkSong(metadata: SongMetadata) {
-    console.log('TohoInfo: checkSong metadata', {
+    console.log('TohoInfo: checkSong called', {
         title: metadata.title,
         artist: metadata.artist_name,
+        album: metadata.album_title,
     });
     updateUI(UI_MESSAGES.SEARCHING, getCallbacks());
 
@@ -73,26 +87,37 @@ async function checkSong(metadata: SongMetadata) {
             metadata.artist_name ?? ''
         );
         const cleanTitle = getCleanTitle(metadata.title ?? '');
-        console.log('TohoInfo: cleanTitle', cleanTitle);
+        console.log('TohoInfo: Searching TouhouDB', {
+            originalTitle: metadata.title,
+            cleanTitle,
+            isStrictlyOriginal,
+            artist: metadata.artist_name,
+        });
         const candidates = await searchTouhouDB(cleanTitle);
-        console.log('TohoInfo: candidates', {
-            count: candidates.length,
-            first: candidates[0]?.name,
+        console.log('TohoInfo: Search results', {
+            cleanTitle,
+            candidateCount: candidates.length,
+            candidates: candidates.map((c: TouhouSong) => ({
+                id: c.id,
+                name: c.name,
+                songType: c.songType,
+            })),
         });
 
         if (candidates.length === 0) {
-            console.log('TohoInfo: no candidates found');
+            console.log('TohoInfo: No candidates found for', cleanTitle);
             updateUI(null);
             return;
         }
 
         const match = findBestMatch(candidates, metadata, isStrictlyOriginal);
+        console.log('TohoInfo: Best match', match ? {
+            id: match.id,
+            name: match.name,
+            songType: match.songType,
+            originalVersionId: match.originalVersionId,
+        } : 'none');
         currentMatch = match;
-        console.log('TohoInfo: best match', {
-            name: match?.name,
-            songType: match?.songType,
-            originalVersionId: match?.originalVersionId,
-        });
 
         let mainText = '';
         let subText = '';
