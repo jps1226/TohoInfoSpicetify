@@ -4,7 +4,7 @@
  */
 import type { CharacterInfo, SongMetadata, TouhouSong } from './types';
 import { searchTouhouDB, fetchOriginalSong, fetchCharacterImage } from './api';
-import { ZUN_LINKS } from './links';
+import { ZUN_LINKS } from './zundb';
 import {
     findBestMatch,
     getEnglishName,
