@@ -76,6 +76,37 @@ export function getSpotifyLinkFromSong(song: TouhouSong): string | null {
     return pv?.url ?? null;
 }
 
-export function isStrictlyOriginalArtist(artistName: string): boolean {
-    return STRICT_ORIGINAL_ARTISTS.includes(artistName as (typeof STRICT_ORIGINAL_ARTISTS)[number]);
+export function isStrictlyOriginalArtist(
+    artistName: string,
+    title?: string,
+    album?: string
+): boolean {
+    if (!STRICT_ORIGINAL_ARTISTS.includes(artistName as (typeof STRICT_ORIGINAL_ARTISTS)[number])) return false;
+
+    const combined = `${title ?? ''} ${album ?? ''}`.toLowerCase();
+    const ARRANGEMENT_KEYWORDS = [
+        'violin',
+        'remix',
+        'arrang',
+        'orchestra',
+        'cover',
+        'rework',
+        'tribute',
+        'mix',
+        'version',
+        'ver',
+        'instrumental',
+        'karaoke',
+        'feat.',
+        'feat',
+    ];
+
+    for (const kw of ARRANGEMENT_KEYWORDS) {
+        if (combined.includes(kw)) return false;
+    }
+
+    // If the artist field contains additional collaborators, don't assume original
+    if (artistName.includes('&') || artistName.includes(',') || artistName.includes('/')) return false;
+
+    return true;
 }
