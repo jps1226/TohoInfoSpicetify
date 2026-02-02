@@ -2,7 +2,7 @@
   {
     "name": "TohoInfo",
     "version": "0.1.1",
-    "description": "Checks for Touhou song metadata via TouhouDB and provides character info.",
+    "description": "(Ver 0.1.1) Checks for Touhou song metadata via TouhouDB and provides character info.",
     "preview": "screenshot.png",
     "main": "tohoinfo.js",
     "readme": "README.md",
