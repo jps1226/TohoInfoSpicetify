@@ -27,6 +27,7 @@ const UI_POLL_MS = 100;
  * Extract stage/theme information from song tags.
  * Returns an array of stage/theme names from the "Themes" category with English translations.
  * Also includes album game title if available.
+ * Character names take priority over stage numbers.
  */
 function getGameAndStageInfo(song: TouhouSong): string[] {
     const extra: string[] = [];
@@ -61,8 +62,30 @@ function getGameAndStageInfo(song: TouhouSong): string[] {
         }
     }
 
-    // Extract stage/theme tags with English translation
-    if (song.tags) {
+    // Extract character name if available - takes priority over stage
+    let hasCharacter = false;
+    if (song.artists) {
+        for (const artistEntry of song.artists) {
+            if (
+                (artistEntry.categories === 'Subject' || 
+                 (artistEntry.artist && artistEntry.artist.artistType === 'Character'))
+            ) {
+                // Extract English name from additionalNames
+                if (artistEntry.artist?.additionalNames) {
+                    const names = artistEntry.artist.additionalNames.split(',').map(n => n.trim());
+                    // First entry is usually English
+                    if (names.length > 0 && names[0]) {
+                        extra.push(names[0]);
+                        hasCharacter = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Extract stage/theme tags only if no character was found
+    if (!hasCharacter && song.tags) {
         for (const songTag of song.tags) {
             if (songTag.tag.categoryName === 'Themes') {
                 // additionalNames contains English translations separated by commas

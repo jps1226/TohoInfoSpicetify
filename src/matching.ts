@@ -65,8 +65,16 @@ export function getCleanTitle(rawTitle: string): string {
     if (!rawTitle) return '';
     let title = rawTitle.normalize('NFKC');
     console.log('getCleanTitle: start', { rawTitle, normalized: title });
+    
+    // Remove parenthetical content (game titles, etc.)
     title = title.replace(/[\(\[][^\)\]]*[\)\]]/g, '');
     console.log('getCleanTitle: after parens removal', { title });
+    
+    // Remove stage boss descriptions (e.g., "-5面ボス・クラウンピース" or "- 5th Stage Boss - Clownpiece")
+    title = title.replace(/-[\s　]*[0-9０-９]*[\s　]*面[\s　]*ボス[^\s　-]*/g, '');
+    title = title.replace(/-[\s　]*(?:[0-9]+(?:st|nd|rd|th)?[\s　]*)?(?:stage[\s　]*)?(?:boss)?[^\s　-]*/gi, '');
+    console.log('getCleanTitle: after stage removal', { title });
+    
     for (const tag of TITLE_TAGS_TO_STRIP) {
         title = title.replace(new RegExp(tag, 'gi'), '');
     }
