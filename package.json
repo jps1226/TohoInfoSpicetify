@@ -11,6 +11,7 @@
   "devDependencies": {
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "baseline-browser-mapping": "^2.9.19",
     "spicetify-creator": "^1.0.17",
     "typescript": "^5.3.3"
   }

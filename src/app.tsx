@@ -57,7 +57,7 @@ async function main() {
             updateUI(null);
             return;
         }
-        await checkSong(metadata as SongMetadata);
+        await checkSong(metadata as SongMetadata, metadata);
     });
 
     const currentMeta = Spicetify.Player.data.item?.metadata;
@@ -66,11 +66,11 @@ async function main() {
             title: currentMeta.title,
             artist: currentMeta.artist_name,
         });
-        checkSong(currentMeta as SongMetadata);
+        checkSong(currentMeta as SongMetadata, currentMeta);
     }
 }
 
-async function checkSong(metadata: SongMetadata) {
+async function checkSong(metadata: SongMetadata, fullMetadata?: any) {
     console.log('TohoInfo: checkSong called', {
         title: metadata.title,
         artist: metadata.artist_name,
@@ -87,7 +87,7 @@ async function checkSong(metadata: SongMetadata) {
             metadata.artist_name ?? '',
             metadata.title ?? '',
             metadata.album_title ?? '',
-            metadata as any
+            fullMetadata ?? metadata
         );
         const cleanTitle = getCleanTitle(metadata.title ?? '');
         console.log('TohoInfo: Searching TouhouDB', {
