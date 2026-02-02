@@ -24,7 +24,7 @@ export async function searchTouhouDB(query: string): Promise<TouhouSong[]> {
  * Fetch a specific song by ID from TouhouDB.
  */
 export async function fetchOriginalSong(id: number): Promise<TouhouSong | null> {
-    const url = `https://touhoudb.com/api/songs/${id}?fields=Tags,Names,PVs,Artists`;
+    const url = `https://touhoudb.com/api/songs/${id}?fields=Tags,Names,PVs,Artists,Albums`;
     try {
         const response = await fetch(url);
         return response.ok ? await response.json() : null;
@@ -52,6 +52,28 @@ export async function fetchCharacterImage(artistId: number): Promise<{ icon: str
         return null;
     } catch (err) {
         console.error('TohoInfo: fetchCharacterImage failed', err);
+        return null;
+    }
+}
+
+/**
+ * Fetch album image URLs for a given album ID.
+ */
+export async function fetchAlbumImage(albumId: number): Promise<{ icon: string; popup: string } | null> {
+    const url = `https://touhoudb.com/api/albums/${albumId}?fields=MainPicture`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (data.mainPicture) {
+            return {
+                icon: data.mainPicture.urlSmallThumb || data.mainPicture.urlTinyThumb || data.mainPicture.urlThumb,
+                popup: data.mainPicture.urlThumb || data.mainPicture.urlOriginal,
+            };
+        }
+        return null;
+    } catch (err) {
+        console.error('TohoInfo: fetchAlbumImage failed', err);
         return null;
     }
 }

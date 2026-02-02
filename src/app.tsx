@@ -3,7 +3,7 @@
  * Entry point wires UI, API, matching, and Spotify navigation.
  */
 import type { CharacterInfo, SongMetadata, TouhouSong } from './types';
-import { searchTouhouDB, fetchOriginalSong, fetchCharacterImage } from './api';
+import { searchTouhouDB, fetchOriginalSong, fetchCharacterImage, fetchAlbumImage } from './api';
 import { ZUN_LINKS } from './zundb';
 import {
     findBestMatch,
@@ -22,6 +22,66 @@ import {
 } from './ui';
 
 const UI_POLL_MS = 100;
+
+/**
+ * Extract stage/theme information from song tags.
+ * Returns an array of stage/theme names from the "Themes" category with English translations.
+ * Also includes album game title if available.
+ */
+function getGameAndStageInfo(song: TouhouSong): string[] {
+    const extra: string[] = [];
+
+    // Extract album/game name with game number preference
+    if (song.albums && song.albums.length > 0) {
+        const album = song.albums[0];
+        if (album.additionalNames) {
+            // additionalNames contains comma-separated aliases
+            const names = album.additionalNames.split(',').map(n => n.trim());
+            // Look for "TH0X" or "Touhou X" format
+            let gameTitle = '';
+            for (const name of names) {
+                const thMatch = name.match(/TH(\d+)/);
+                if (thMatch) {
+                    gameTitle = `Touhou ${parseInt(thMatch[1])}`;
+                    break;
+                }
+            }
+            // Fallback: look for "Perfect Cherry Blossom" style name
+            if (!gameTitle) {
+                const englishName = names.find(n => n.includes('Perfect') || n.includes('Mystical'));
+                if (englishName) {
+                    gameTitle = englishName;
+                }
+            }
+            if (gameTitle) {
+                extra.push(gameTitle);
+            }
+        } else if (album.name) {
+            extra.push(album.name);
+        }
+    }
+
+    // Extract stage/theme tags with English translation
+    if (song.tags) {
+        for (const songTag of song.tags) {
+            if (songTag.tag.categoryName === 'Themes') {
+                // additionalNames contains English translations separated by commas
+                if (songTag.tag.additionalNames) {
+                    const translations = songTag.tag.additionalNames.split(',').map(t => t.trim());
+                    // Prefer translations with numbers (e.g., "2nd stage" over "second stage")
+                    const english = translations.find(t => /\d/.test(t)) || translations[0];
+                    if (english) {
+                        extra.push(english);
+                    }
+                } else {
+                    extra.push(songTag.tag.name);
+                }
+            }
+        }
+    }
+
+    return extra;
+}
 
 // Global state (used by song-change handler and UI callbacks)
 let currentMatch: TouhouSong | null = null;
@@ -194,6 +254,21 @@ async function checkSong(metadata: SongMetadata, fullMetadata?: any) {
             }
         }
 
+        // Fallback to album art if no character image found
+        if (!charInfo && sourceSongForChar?.albums && sourceSongForChar.albums.length > 0) {
+            const album = sourceSongForChar.albums[0];
+            if (album.id) {
+                const albumImgs = await fetchAlbumImage(album.id);
+                if (albumImgs) {
+                    charInfo = {
+                        name: album.name,
+                        iconUrl: albumImgs.icon,
+                        popupUrl: albumImgs.popup,
+                    };
+                }
+            }
+        }
+
         if (
             !subText ||
             subText === match.name ||
@@ -201,8 +276,11 @@ async function checkSong(metadata: SongMetadata, fullMetadata?: any) {
         ) {
             subText = '';
         }
+
+        // Use original song for game/stage info if available, otherwise use match
+        const extra = getGameAndStageInfo(sourceSongForChar);
         updateUI(
-            { main: mainText, sub: subText, hasOriginalLink: hasLink, charInfo },
+            { main: mainText, sub: subText, extra: extra.length > 0 ? extra : undefined, hasOriginalLink: hasLink, charInfo },
             getCallbacks()
         );
     } catch (err) {

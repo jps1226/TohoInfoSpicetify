@@ -50,6 +50,11 @@ export function buildHoverCardHtml(data: NonNullable<UICardData>): string {
     if (data.sub) {
         parts.push(`<div class="toho-card-sub">${escapeHtml(data.sub)}</div>`);
     }
+    if (data.extra && data.extra.length > 0) {
+        for (const info of data.extra) {
+            parts.push(`<div class="toho-card-extra">${escapeHtml(info)}</div>`);
+        }
+    }
     parts.push(
         '<div class="toho-card-sub" style="font-size: 0.7rem; opacity: 0.7; margin-top:4px;">(Click icon for info)</div>'
     );
@@ -80,8 +85,8 @@ export function injectStyles(): void {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 42px;
-            height: 42px;
+            width: 64px;
+            height: 64px;
             margin-right: 12px;
             margin-left: 12px;
             border-radius: 50%;
@@ -99,7 +104,7 @@ export function injectStyles(): void {
         }
 
         #toho-icon-img {
-            width: 38px; height: 38px;
+            width: 60px; height: 60px;
             border-radius: 50%;
             object-fit: cover;
             object-position: top center;
@@ -168,6 +173,7 @@ export function injectStyles(): void {
 
         .toho-card-title { color: var(--spice-text); font-weight: bold; font-size: 0.95rem; line-height: 1.3; margin-bottom: 4px; }
         .toho-card-sub { color: var(--spice-subtext); font-size: 0.8rem; line-height: 1.2; }
+        .toho-card-extra { color: var(--spice-subtext); font-size: 0.75rem; line-height: 1.2; font-style: italic; opacity: 0.85; }
         .toho-card-sep { height: 1px; background: var(--spice-button-disabled); margin: 8px 0; opacity: 0.3; }
 
         .toho-card-btn {

@@ -19,12 +19,33 @@ export interface ArtistEntry {
 }
 
 export interface Album {
+    id?: number;
     name: string;
+    additionalNames?: string;
+    mainPicture?: {
+        urlSmallThumb?: string;
+        urlThumb?: string;
+        urlTinyThumb?: string;
+        urlOriginal?: string;
+    };
 }
 
 export interface PV {
     service: string;
     url: string;
+}
+
+export interface Tag {
+    id: number;
+    name: string;
+    categoryName: string;
+    additionalNames?: string;
+    urlSlug?: string;
+}
+
+export interface SongTag {
+    count: number;
+    tag: Tag;
 }
 
 export interface TouhouSong {
@@ -36,6 +57,7 @@ export interface TouhouSong {
     artists?: ArtistEntry[];
     albums?: Album[];
     pvs?: PV[];
+    tags?: SongTag[];
 }
 
 export interface SongMetadata {
@@ -53,6 +75,7 @@ export interface CharacterInfo {
 export interface UICardData {
     main: string;
     sub?: string;
+    extra?: string[];
     hasOriginalLink: boolean;
     charInfo?: CharacterInfo;
 }
