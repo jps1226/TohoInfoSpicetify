@@ -99,6 +99,18 @@ export function isStrictlyOriginalArtist(
         'karaoke',
         'feat.',
         'feat',
+        // Japanese keywords commonly used on arrangement albums
+        'バイオリン',
+        'アレンジ',
+        'アレンジメント',
+        'リミックス',
+        '編曲',
+        'カバー',
+        'ヴァージョン',
+        'バージョン',
+        'オーケストラ',
+        // Known arranger/label patterns
+        'tamusic',
     ];
 
     for (const kw of ARRANGEMENT_KEYWORDS) {
@@ -107,6 +119,9 @@ export function isStrictlyOriginalArtist(
 
     // If the artist field contains additional collaborators, don't assume original
     if (artistName.includes('&') || artistName.includes(',') || artistName.includes('/')) return false;
+
+    // If album/title explicitly mentions a known arranger/label (like TAMUSIC), it's not an original
+    if ((album ?? '').toLowerCase().includes('tamusic')) return false;
 
     return true;
 }
