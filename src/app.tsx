@@ -58,6 +58,10 @@ async function main() {
 }
 
 async function checkSong(metadata: SongMetadata) {
+    console.log('TohoInfo: checkSong metadata', {
+        title: metadata.title,
+        artist: metadata.artist_name,
+    });
     updateUI(UI_MESSAGES.SEARCHING, getCallbacks());
 
     currentMatch = null;
@@ -69,15 +73,26 @@ async function checkSong(metadata: SongMetadata) {
             metadata.artist_name ?? ''
         );
         const cleanTitle = getCleanTitle(metadata.title ?? '');
+        console.log('TohoInfo: cleanTitle', cleanTitle);
         const candidates = await searchTouhouDB(cleanTitle);
+        console.log('TohoInfo: candidates', {
+            count: candidates.length,
+            first: candidates[0]?.name,
+        });
 
         if (candidates.length === 0) {
+            console.log('TohoInfo: no candidates found');
             updateUI(null);
             return;
         }
 
         const match = findBestMatch(candidates, metadata, isStrictlyOriginal);
         currentMatch = match;
+        console.log('TohoInfo: best match', {
+            name: match?.name,
+            songType: match?.songType,
+            originalVersionId: match?.originalVersionId,
+        });
 
         let mainText = '';
         let subText = '';
