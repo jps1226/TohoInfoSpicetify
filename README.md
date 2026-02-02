@@ -8,11 +8,17 @@ TohoInfo is a lightweight Spicetify extension designed for fans of the Touhou Pr
 
 ## ✨ Features
 
-* **Arrangement Detection:** Uses title and album matching against the external TouhouDB API to identify arrangements.
-* **Persistent Character Icon:** Displays the associated Touhou character (e.g., Reimu, Marisa) as an icon in the player bar if it's a character theme.
-* **Hover-to-View Info:** Hovering the icon reveals a full metadata card, including the original Japanese title and English translation.
+* **Arrangement Detection:** Uses title and album matching against the external TouhouDB API to identify arrangements, with intelligent handling of secondary artists and arrangement suffixes.
+* **Persistent Visual Display:** Displays a larger icon (64x64px) in the player bar showing either the associated character image or album artwork if no character is available.
+* **Rich Metadata Card:** Hovering the icon reveals a full information card including:
+  * Original song title (Japanese)
+  * English translation
+  * Game/Album title (e.g., "Touhou 7 ~ Perfect Cherry Blossom")
+  * Associated character name or stage information
+* **Character Priority:** Shows character names (e.g., "Reimu", "Marisa") when available, with stage information as fallback.
 * **Fast Spotify Link:** Provides a one-click button in the hover card to jump directly to the original ZUN track on Spotify.
 * **TouhouDB Integration:** Clicking the icon opens the song's TouhouDB page in an in-app browser window.
+* **Smart Fallback Images:** Uses character artwork when available, falls back to album cover art otherwise.
 * **Hardcoded Fallback:** Uses a local database for crucial ZUN track links, ensuring the "Play Original" button is highly reliable.
 
 ## 💾 Installation
@@ -36,6 +42,18 @@ TohoInfo is a lightweight Spicetify extension designed for fans of the Touhou Pr
     spicetify apply
     ```
 
+## 🎵 How It Works
+
+When a song starts playing:
+
+1. TohoInfo cleans the title by removing arrangement markers (VIOLIN ROCK, etc.) and stage boss descriptions
+2. It searches TouhouDB for the cleaned title
+3. If an arrangement is found, it fetches the original song's metadata including:
+   - Character information (if the original song is a character theme)
+   - Album/game information (e.g., "Touhou 12 ~ Unidentified Fantastical Object")
+   - Stage information (if not a character theme)
+4. The hover card displays this metadata with appropriate imagery
+
 ## 🛠️ Development & Building
 
 If you are using the repository's source code, you must first install dependencies and build the TypeScript files:
@@ -43,4 +61,9 @@ If you are using the repository's source code, you must first install dependenci
 ```bash
 # Inside your project folder
 npm install
+npm run build
+```
+
+To build with minification:
+```bash
 npm run build-local
