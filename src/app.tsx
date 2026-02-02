@@ -32,7 +32,7 @@ const UI_POLL_MS = 100;
 function getGameAndStageInfo(song: TouhouSong): string[] {
     const extra: string[] = [];
 
-    // Extract album/game name with game number preference
+    // Extract album/game name with game number preference - ALWAYS do this first
     if (song.albums && song.albums.length > 0) {
         const album = song.albums[0];
         if (album.additionalNames) {
@@ -47,9 +47,9 @@ function getGameAndStageInfo(song: TouhouSong): string[] {
                     break;
                 }
             }
-            // Fallback: look for "Perfect Cherry Blossom" style name
+            // Fallback: look for "Touhou" name
             if (!gameTitle) {
-                const englishName = names.find(n => n.includes('Perfect') || n.includes('Mystical'));
+                const englishName = names.find(n => n.toLowerCase().includes('touhou'));
                 if (englishName) {
                     gameTitle = englishName;
                 }
