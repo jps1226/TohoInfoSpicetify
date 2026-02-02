@@ -86,7 +86,8 @@ async function checkSong(metadata: SongMetadata) {
         const isStrictlyOriginal = isStrictlyOriginalArtist(
             metadata.artist_name ?? '',
             metadata.title ?? '',
-            metadata.album_title ?? ''
+            metadata.album_title ?? '',
+            metadata as any
         );
         const cleanTitle = getCleanTitle(metadata.title ?? '');
         console.log('TohoInfo: Searching TouhouDB', {

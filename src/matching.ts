@@ -79,7 +79,8 @@ export function getSpotifyLinkFromSong(song: TouhouSong): string | null {
 export function isStrictlyOriginalArtist(
     artistName: string,
     title?: string,
-    album?: string
+    album?: string,
+    metadata?: any
 ): boolean {
     if (!STRICT_ORIGINAL_ARTISTS.includes(artistName as (typeof STRICT_ORIGINAL_ARTISTS)[number])) return false;
 
@@ -113,15 +114,37 @@ export function isStrictlyOriginalArtist(
         'tamusic',
     ];
 
+    const reasons: string[] = [];
+
     for (const kw of ARRANGEMENT_KEYWORDS) {
-        if (combined.includes(kw)) return false;
+        if (combined.includes(kw)) {
+            reasons.push(`keyword:${kw}`);
+        }
     }
 
     // If the artist field contains additional collaborators, don't assume original
-    if (artistName.includes('&') || artistName.includes(',') || artistName.includes('/')) return false;
+    if (artistName.includes('&') || artistName.includes(',') || artistName.includes('/')) reasons.push('collab');
 
     // If album/title explicitly mentions a known arranger/label (like TAMUSIC), it's not an original
-    if ((album ?? '').toLowerCase().includes('tamusic')) return false;
+    if ((album ?? '').toLowerCase().includes('tamusic')) reasons.push('album:tamusic');
 
+    // If any metadata field contains known arranger/label/publisher strings, treat as not original.
+    let haystack = '';
+    if (metadata) {
+        try {
+            haystack = JSON.stringify(metadata).toLowerCase();
+            if (haystack.includes('tamusic')) reasons.push('metadata:tamusic');
+            if (haystack.includes('arrange') || haystack.includes('編曲') || haystack.includes('arranger')) reasons.push('metadata:arrange');
+        } catch (e) {
+            // ignore stringify errors
+        }
+    }
+
+    if (reasons.length > 0) {
+        console.debug('isStrictlyOriginalArtist -> false', { artistName, title, album, reasons, haystackSample: haystack.slice(0, 400) });
+        return false;
+    }
+
+    console.debug('isStrictlyOriginalArtist -> true', { artistName, title, album });
     return true;
 }
