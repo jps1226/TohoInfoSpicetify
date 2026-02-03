@@ -1,8 +1,8 @@
 [
   {
     "name": "TohoInfo",
-    "version": "0.1.1",
-    "description": "(Ver 0.1.1) Checks for Touhou song metadata via TouhouDB and provides character info.",
+    "version": "0.2.0",
+    "description": "(Ver 0.2.0) Checks for Touhou song metadata via TouhouDB and provides character info. Now with TAMUSIC support, game/stage info, and album art for non-character songs.",
     "preview": "screenshot.png",
     "main": "tohoinfo.js",
     "readme": "README.md",
